@@ -3,8 +3,8 @@ import re
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from api.models import Plan,Feature,Category,video
-from .serializers import CategorySerializer, FeatureSerializer, PlanSerializer, TrainerSerializer, UserSerializer, VideoSerializer
+from api.models import Plan,Feature,Category,video,Thread,ChatMessage
+from .serializers import CategorySerializer, ChatSerializer, FeatureSerializer, PlanSerializer, ThreadSerializer, TrainerSerializer, UserSerializer, VideoSerializer
 from .serializers import UserSerializerWithToken
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
@@ -15,6 +15,7 @@ from django.db import IntegrityError
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
+from django.db.models import Q
 
 
 
@@ -26,7 +27,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token['username'] = user.username
         token['is_superuser'] = user.is_superuser
-        token['role'] = user.role
+        token['role']= user.role
+        token['own_plan'] = user.own_plan
+        token['assigned_trainer'] = user.assigned_trainer
+        token['height'] = user.height
         return token
 
 
@@ -81,12 +85,22 @@ class GetUser(APIView):
             trainer_id = user.id
             users = User.objects.filter(role=User.CUSTOMER, trainer_id=trainer_id)
             print(users)
+        
+        elif user.role == User.CUSTOMER:
+            user_id=user.id
+            users=User.objects.filter(id=user_id)
+            print("test",user)
 
         else:
             return Response({"message": "Unauthorized"}, status=403)
         
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=200)
+    
+# class AddUserData(APIView):
+#     def post(self,request):
+#         user=User..orequest.usr
+
     
 class UserView(APIView):
     def get(self,request,user_id):
@@ -235,8 +249,10 @@ class AssignPlan(APIView):
         def post(self,request):
             user=User.objects.get(id=request.user.id)
             plan_id=request.data["plan_id"]
+            plan_type=request.data["plan_type"]
             user.plan_id=plan_id
             user.own_plan=True
+            user.plan_type=plan_type
             user.save()
             return Response(status=status.HTTP_200_OK)
             
@@ -260,6 +276,14 @@ class DeletePlan(APIView):
         plan.delete()
         return Response({"message": "successfully deleted"}, status=status.HTTP_200_OK)
 
+# class Categories(APIView):
+    
+#     def get(self,request):
+#         print(request.data)
+
+#         categories=Category.objects.all()
+#         serializer=CategorySerializer(categories,many=True)
+#         return Response(serializer.data,status=status.HTTP_200_OK)
 class Categories(APIView):
     def get(self,request):
         categories=Category.objects.all()
@@ -267,12 +291,48 @@ class Categories(APIView):
         return Response(serializer.data,status=status.HTTP_200_OK)
 
 
+
 class AddCategory(APIView):
     def post(self,request):
+        print(request.data)
         serializer=CategorySerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "successfully added"}, status=status.HTTP_200_OK)
+        # def post(self, request):
+        # category_id = request.data.get('id')  # Get the 'id' parameter from the request data
+        # if category_id:
+        #     category = Category.objects.get(id=category_id) # Fetch the existing category
+        #     serializer = CategorySerializer(instance=category, data=request.data)  # Pass the existing category instance
+        # else:
+        #     serializer = CategorySerializer(data=request.data)  # Create a new category instance
+        
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     if category_id:
+        #         return Response({"message": "successfully updated"}, status=status.HTTP_200_OK)
+        #     else:
+        #         return Response({"message": "successfully added"}, status=status.HTTP_200_OK)
+        # else:
+        #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class EditCategory(APIView):
+    def post(self,request,category_id):
+        category=Category.objects.get(id=category_id)
+        serializer=CategorySerializer(instance=category,data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response( serializer.data)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        
+class DeleteCategory(APIView):
+    def post(self,request,category_id):
+        category=Category.objects.get(id=category_id)
+        category.delete()
+        return Response({"message": "successfully deleted"}, status=status.HTTP_200_OK)
+
+
 
 class GetVideos(APIView):
     def get(self,request,category_id):
@@ -307,6 +367,26 @@ class AddVideo(APIView):
             return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class EditVideo(APIView):
+    def post(self, request, video_id):
+        video_single=video.objects.get(id=video_id)
+        serializer=VideoSerializer(instance=video_single,data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response( serializer.data)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+
+class DeleteVideo(APIView):
+    def post(self, request, video_id):
+        print(video_id)
+        video_single=video.objects.get(id=video_id)
+        video_single.delete()
+        return Response({"message": "successfully deleted"}, status=status.HTTP_200_OK)
+
+
 class UploadImage(APIView):
     def post(self,request,user_id):
             user=User.objects.get(id=user_id)
@@ -336,3 +416,85 @@ class ChangePassword(APIView):
         user.set_password(new_password)
         user.save()
         return Response({'message': 'Password changed successfully.'}, status=200)
+
+class GetAssignedUsers(APIView):
+    def get(self,request,trainer_id):
+        users=User.objects.filter(trainer_id=trainer_id)
+        serializer=UserSerializer(users,many=True)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
+class GetCount(APIView):
+    def get(self,request):
+        user_count=User.objects.filter(role=User.CUSTOMER).count()
+        print("usercount",user_count)
+        member_count=User.objects.filter(role=User.CUSTOMER,own_plan=True).count()
+        print("membercount",member_count)
+        trainer_count=User.objects.filter(role=User.TRAINER).count()
+        print("trainercount",trainer_count)
+        return Response({'user_count': user_count,'member_count': member_count,'trainer_count': trainer_count})
+
+class Statistics(APIView):
+    def get(self, request):
+        packages = Plan.objects.all()
+        data = {
+            'packages': [],
+            'userCounts': []
+        }
+
+        for plan in packages:
+            user_count = User.objects.filter(plan_id=plan.id).count()
+            data['packages'].append(plan.type)
+            data['userCounts'].append(user_count)
+
+        return Response(data)
+
+
+
+class ChatConsumer(APIView):
+
+    def get(self, request):
+        print("vaa",request.user)
+        # threads = Thread.objects.filter(Q(first_person=user_id) | Q(second_person=user_id)).prefetch_related('chatmessage_thread').order_by('timestamp')
+        threads = Thread.objects.by_user(user=request.user).prefetch_related('chatmessage_thread').order_by('timestamp')
+        print("this is",threads)
+        serializer = ThreadSerializer(threads, many=True)
+        return Response(serializer.data)
+
+class GetChat(APIView):
+    def get(self,request,user_id,trainer_id,thread_id)  :
+        print("user",user_id)  
+        print("trainer",trainer_id)
+        print("thread",thread_id)
+        chats=ChatMessage.objects.filter(thread_id=thread_id)
+        serializer = ChatSerializer(chats, many=True)
+        return Response(serializer.data)
+
+    
+class ThreadView(APIView):
+    def post(self, request):
+        print("req",request.data)
+        user_ids = request.data.get('users', [])
+        if len(user_ids) != 2:
+            return Response({'error': 'Invalid number of users'}, status=400)
+        
+        user1_id, user2_id = user_ids
+        print("1",user1_id)
+        print("2",user2_id)
+        thread = Thread.objects.filter(
+            Q(first_person_id=user1_id, second_person_id=user2_id) |
+            Q(first_person_id=user2_id, second_person_id=user1_id)
+        ).first()
+
+        if thread is None:
+            # Create new thread
+            user1 = User.objects.get(id=user1_id)
+            user2 = User.objects.get(id=user2_id)
+            thread = Thread.objects.create(
+                first_person=user1,
+                second_person=user2
+            )
+
+        serializer = ThreadSerializer(thread)
+        print(serializer.data)
+        return Response(serializer.data)
+    

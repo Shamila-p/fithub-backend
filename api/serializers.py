@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from pytube import YouTube
-from api.models import Plan,Feature,Category,video
+from api.models import Plan,Feature,Category,video,Thread,ChatMessage
 
 User = get_user_model()
 
@@ -11,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         print('reached')
         model = User
-        fields = ['id','first_name','username','email','phone','age','is_active','height','weight','own_plan','assigned_trainer','trainer_id','gender']
+        fields = ['id','first_name','username','email','phone','age','is_active','height','weight','own_plan','assigned_trainer','trainer_id','gender','plan_type','plan_id']
 
 
 class UserSerializerWithToken(UserSerializer):
@@ -118,3 +118,15 @@ class VideoSerializer(serializers.ModelSerializer):
         yt = YouTube(obj.url)
         thumbnail_url = yt.thumbnail_url
         return thumbnail_url
+
+from rest_framework import serializers
+
+class ThreadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Thread
+        fields = '__all__'
+
+class ChatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = '__all__'

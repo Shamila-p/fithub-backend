@@ -31,6 +31,7 @@ AUTH_USER_MODEL = 'api.User'
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +43,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'api.apps.ApiConfig',
     'access.apps.AccessConfig',
+    'channels',
+    'channels_redis',
+
 
 ]
 
@@ -75,7 +79,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'fithub.wsgi.application'
+# WSGI_APPLICATION = 'fithub.wsgi.application'
+ASGI_APPLICATION = 'fithub.asgi.application'
 
 
 # Database
@@ -174,4 +179,13 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        # 'CONFIG': {
+        #     'hosts': [('localhost', 6379)],
+        # },
+    },
 }
