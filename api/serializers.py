@@ -85,7 +85,12 @@ class PlanSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         features_data = validated_data.pop('features', '')
+        if isinstance(features_data, list):
+            features_list = [feature['feature_text'] for feature in features_data]
+            features_data = ','.join(features_list)
+        
         features_list = [feature.strip() for feature in features_data.split(',') if feature.strip()]
+        # features_list = [feature.strip() for feature in features_data.split(',') if feature.strip()]
 
         instance.type = validated_data.get('type', instance.type)
         instance.amount = validated_data.get('amount', instance.amount)
@@ -97,7 +102,6 @@ class PlanSerializer(serializers.ModelSerializer):
         for feature_data in features_list:
             feature = Feature.objects.create(entry=instance, feature_text=feature_data)
             feature.save()
-
         return instance
 
         

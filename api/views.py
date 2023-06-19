@@ -3,7 +3,7 @@ import re
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from api.models import Plan,Feature,Category,video,Thread,ChatMessage
+from api.models import Plan,Feature,Category,video,Thread,ChatMessage,EditEmail
 from .serializers import CategorySerializer, ChatSerializer, FeatureSerializer, PlanSerializer, ThreadSerializer, TrainerSerializer, UserSerializer, VideoSerializer
 from .serializers import UserSerializerWithToken
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView
@@ -16,7 +16,9 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from django.db.models import Q
+from django.conf import settings
 
+from django.core.mail import send_mail
 
 
 User = get_user_model()
@@ -30,6 +32,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['role']= user.role
         token['own_plan'] = user.own_plan
         token['assigned_trainer'] = user.assigned_trainer
+        token['date_joined'] = user.date_joined.isoformat() 
         token['height'] = user.height
         return token
 
@@ -115,6 +118,18 @@ class UserView(APIView):
 class UserEdit(APIView):
     def post(self,request,user_id):
         user=User.objects.get(id=user_id)
+        # if request.data['email']!= user.email:
+        #     print("email",request.data['email'])
+        #     new_email=request.data['email']
+        #     EditEmail.objects.create(new_email=user.email,user_id=request.user.id)
+        #     subject = 'Email verification process'
+        #     message = ' You are receiving this email because you requested to change your email in fithub profile. Please Click below to edit email. Thanks for using our site! '
+        #     email_from = settings.EMAIL_HOST_USER
+        #     recipient_list = [new_email]
+        #     send_mail( subject, message, email_from, recipient_list )
+
+
+        # print("wrong")
         
         serializer=UserSerializer(instance=user,data=request.data,partial=True)
        
@@ -127,10 +142,7 @@ class UserEdit(APIView):
 
 class UserBlock(APIView):
     def post(self,request,user_id):
-        print("enter")
         user=User.objects.get(id=user_id)
-        print(user)
-        print('this',user.is_active)
         user.is_active= not user.is_active
         user.save()
         return Response({"message": "success"}, status = status.HTTP_200_OK)
@@ -221,7 +233,6 @@ class GetPlans(APIView):
     def get(self,request):
             queryset = Plan.objects.all()
             serializer= PlanSerializer(queryset,many=True)
-            print(serializer.data)
             return Response(serializer.data,status='200')
             
         # plans=Plan.objects.all()
@@ -256,14 +267,21 @@ class AssignPlan(APIView):
             user.save()
             return Response(status=status.HTTP_200_OK)
             
-    
+class GetSinglePlan(APIView):
+    def get(self, request, plan_id):  # Use patch method instead of post
+        plan = Plan.objects.get(id=plan_id)
+        serializer = PlanSerializer(plan)
+        print("data",serializer.data)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
 
 class EditPlan(APIView):
-    def put(self, request, plan_id):  # Use patch method instead of post
+    def post(self, request, plan_id):  # Use patch method instead of post
         plan = Plan.objects.get(id=plan_id)
         serializer = PlanSerializer(instance=plan, data=request.data, partial=True)  # Specify partial=True
         if serializer.is_valid():
             serializer.save()
+            print(serializer.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -325,6 +343,13 @@ class EditCategory(APIView):
             return Response( serializer.data)
         else:
             return Response(status=status.HTTP_404_NOT_FOUND)
+
+class BlockCategory(APIView):
+    def post(self,request,category_id):
+        category=Category.objects.get(id=category_id)
+        category.is_active = not category.is_active
+        category.save()
+        return Response( status = status.HTTP_200_OK)
         
 class DeleteCategory(APIView):
     def post(self,request,category_id):

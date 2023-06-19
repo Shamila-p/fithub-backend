@@ -47,6 +47,8 @@ class Feature(models.Model):
 
 class Category(models.Model):
     category_name=models.CharField(max_length=30)
+    is_active = models.BooleanField(null=True, blank=True, default=True)
+
 
 class video(models.Model):
     title=models.CharField(max_length=15)
@@ -78,3 +80,8 @@ class ChatMessage(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+
+class EditEmail(models.Model):
+    new_email=models.EmailField(max_length=50)
+    user=models.ForeignKey(User,on_delete=models.CASCADE,null=True)
+    
