@@ -6,7 +6,7 @@ from channels.auth import AuthMiddlewareStack
 from api.routing import websocket_urlpatterns
 from daphne.server import Server
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fithub.settings')
 import django
 django.setup()
 # application = get_asgi_application()
