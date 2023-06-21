@@ -13,6 +13,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id','first_name','username','email','phone','age','is_active','height','weight','own_plan','assigned_trainer','trainer_id','gender','plan_type','plan_id']
 
+class UserEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        print('reached')
+        model = User
+        fields = ['id','first_name','username','phone','age','is_active','height','weight','own_plan','assigned_trainer','trainer_id','gender','plan_type','plan_id']
 
 class UserSerializerWithToken(UserSerializer):
     token = serializers.SerializerMethodField(read_only=True)

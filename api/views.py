@@ -2,7 +2,8 @@ import json
 import re
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
+import uuid
+from decouple import config
 from api.models import Plan,Feature,Category,video,Thread,ChatMessage,EditEmail
 from .serializers import CategorySerializer, ChatSerializer, FeatureSerializer, PlanSerializer, ThreadSerializer, TrainerSerializer, UserSerializer, VideoSerializer
 from .serializers import UserSerializerWithToken
@@ -81,7 +82,7 @@ class GetUser(APIView):
         print(request.user)
         if user.role == User.ADMIN:
             # Admin view logic
-            users = User.objects.filter(role=User.CUSTOMER)
+            users = User.objects.filter(role=User.CUSTOMER).exclude(Q(own_plan=True) & Q(assigned_trainer=False))
             print(users)
         elif user.role == User.TRAINER:
             # Trainer view logic
@@ -99,10 +100,14 @@ class GetUser(APIView):
         
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=200)
-    
-# class AddUserData(APIView):
-#     def post(self,request):
-#         user=User..orequest.usr
+
+class GetMembers(APIView):
+    def get(self, request):
+        users=User.objects.filter(role=User.CUSTOMER,own_plan=True,assigned_trainer=False)  
+        print("membes",users)
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status = status.HTTP_200_OK)
+        
 
     
 class UserView(APIView):
@@ -118,27 +123,46 @@ class UserView(APIView):
 class UserEdit(APIView):
     def post(self,request,user_id):
         user=User.objects.get(id=user_id)
-        # if request.data['email']!= user.email:
-        #     print("email",request.data['email'])
-        #     new_email=request.data['email']
-        #     EditEmail.objects.create(new_email=user.email,user_id=request.user.id)
-        #     subject = 'Email verification process'
-        #     message = ' You are receiving this email because you requested to change your email in fithub profile. Please Click below to edit email. Thanks for using our site! '
-        #     email_from = settings.EMAIL_HOST_USER
-        #     recipient_list = [new_email]
-        #     send_mail( subject, message, email_from, recipient_list )
-
-
-        # print("wrong")
-        
-        serializer=UserSerializer(instance=user,data=request.data,partial=True)
-       
-        if serializer.is_valid():
-            serializer.save()
-            print(serializer.data)
-            return Response(serializer.data)
+        verification_id=str(uuid.uuid1())
+        if request.data['email']!= user.email:
+            print("email",request.data['email'])
+            new_email=user.email
+            EditEmail.objects.create(new_email=request.data['email'],user_id=request.user.id,uuid=verification_id)
+            verification_url=config('FRONTEND_DOMAIN')+'/verify-email/'+verification_id
+            subject = 'Email verification process'
+            message = ' You are receiving this email because you requested to change your email in fithub profile. Please Click below link to edit email. Thanks for using our site! '+verification_url
+            email_from = settings.EMAIL_HOST_USER
+            recipient_list = [new_email]
+            send_mail( subject, message, email_from, recipient_list )
+            return Response(status = status.HTTP_200_OK)
         else:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            print("wrong")
+
+            serializer=UserSerializer(instance=user,data=request.data,partial=True)
+        
+            if serializer.is_valid():
+                serializer.save()
+                print(serializer.data)
+                return Response(serializer.data)
+            else:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+class VerifyEmail(APIView):
+    def post(self,request,verification_id):
+        if not EditEmail.objects.filter(uuid=verification_id).exists():
+            return Response({"message": "Sorry, this link is no more available"}, status=401)
+        else:
+            print(verification_id)
+            verify=EditEmail.objects.get( uuid=verification_id)
+            print(verify)
+            edit=EditEmail.objects.get(user_id=verify.user_id)
+
+            user=User.objects.get(id=verify.user_id)
+            user.email=edit.new_email
+            user.save()
+            edit.delete()
+            return Response(status='200')
+
 
 class UserBlock(APIView):
     def post(self,request,user_id):

@@ -84,4 +84,4 @@ class ChatMessage(models.Model):
 class EditEmail(models.Model):
     new_email=models.EmailField(max_length=50)
     user=models.ForeignKey(User,on_delete=models.CASCADE,null=True)
-    
+    uuid=models.CharField(max_length=50,null=True)
