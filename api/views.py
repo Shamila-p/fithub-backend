@@ -5,7 +5,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import uuid
 from decouple import config
 from api.models import Plan,Feature,Category,video,Thread,ChatMessage,EditEmail
-from .serializers import CategorySerializer, ChatSerializer, FeatureSerializer, PlanSerializer, ThreadSerializer, TrainerSerializer, UserSerializer, VideoSerializer
+from .serializers import CategorySerializer, ChatSerializer, FeatureSerializer, PlanSerializer, ThreadSerializer, TrainerSerializer, UserSerializer, VideoSerializer,UserEditSerializer
 from .serializers import UserSerializerWithToken
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
@@ -119,6 +119,17 @@ class UserView(APIView):
 
         serializer = UserSerializer(user)
         return Response(serializer.data, status = status.HTTP_200_OK)
+class UserEntry(APIView):
+     def post(self,request,user_id):
+        user=User.objects.get(id=user_id)
+        serializer=UserSerializer(instance=user,data=request.data,partial=True)
+    
+        if serializer.is_valid():
+            serializer.save()
+            print(serializer.data)
+            return Response(serializer.data)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 class UserEdit(APIView):
     def post(self,request,user_id):
@@ -126,6 +137,7 @@ class UserEdit(APIView):
         verification_id=str(uuid.uuid1())
         if request.data['email']!= user.email:
             print("email",request.data['email'])
+            print(user.email)
             new_email=user.email
             EditEmail.objects.create(new_email=request.data['email'],user_id=request.user.id,uuid=verification_id)
             verification_url=config('FRONTEND_DOMAIN')+'/verify-email/'+verification_id
@@ -134,18 +146,16 @@ class UserEdit(APIView):
             email_from = settings.EMAIL_HOST_USER
             recipient_list = [new_email]
             send_mail( subject, message, email_from, recipient_list )
-            return Response(status = status.HTTP_200_OK)
-        else:
-            print("wrong")
+       
 
-            serializer=UserSerializer(instance=user,data=request.data,partial=True)
-        
-            if serializer.is_valid():
-                serializer.save()
-                print(serializer.data)
-                return Response(serializer.data)
-            else:
-                return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer=UserEditSerializer(instance=user,data=request.data,partial=True)
+    
+        if serializer.is_valid():
+            serializer.save()
+            print("data",serializer.data)
+            return Response(serializer.data)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 class VerifyEmail(APIView):
     def post(self,request,verification_id):
@@ -258,6 +268,14 @@ class GetPlans(APIView):
             queryset = Plan.objects.all()
             serializer= PlanSerializer(queryset,many=True)
             return Response(serializer.data,status='200')
+    
+class GetCurrentPlan(APIView):
+    def get(self,request,user_id):
+        user = User.objects.get(id=user_id)
+        current_plan = Plan.objects.get(id=user.plan_id)
+        serializer = PlanSerializer(current_plan)  # Assuming you have a serializer for the Plan model
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
             
         # plans=Plan.objects.all()
         # features=[]
@@ -309,6 +327,18 @@ class EditPlan(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class UpgradePlan(APIView):
+    def post(self,request):
+        user_id=request.data["user_id"]
+        plan_id=request.data["plan_id"]
+        print("user",user_id)
+        print("user",plan_id)
+        plan=User.objects.get(id=user_id)
+        print("pl",plan.plan_id)
+        plan.plan_id=plan_id
+        plan.save()
+        return Response(status=status.HTTP_200_OK)
+
 
 
 class DeletePlan(APIView):
@@ -328,7 +358,16 @@ class DeletePlan(APIView):
 #         return Response(serializer.data,status=status.HTTP_200_OK)
 class Categories(APIView):
     def get(self,request):
-        categories=Category.objects.all()
+        
+        if request.user.is_authenticated:
+            if request.user.role == User.ADMIN:
+                categories = Category.objects.all()
+            else:
+                categories = Category.objects.filter(is_active=True)
+        else:
+            categories = Category.objects.filter(is_active=True)
+
+
         serializer=CategorySerializer(categories,many=True)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
