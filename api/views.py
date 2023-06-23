@@ -18,7 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from django.db.models import Q
 from django.conf import settings
-
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
 
 
@@ -231,7 +231,8 @@ class AssignTrainer(APIView):
             # user.assigned_user=True
             user.save()
             trainer.save()
-            return Response( status = status.HTTP_200_OK)
+            
+            return Response(status = status.HTTP_200_OK)
 
 class EditTrainer(APIView):
     def post(self,request,trainer_id):
